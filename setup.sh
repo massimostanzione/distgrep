@@ -26,7 +26,6 @@ for item in "${modules[@]}"
 do
     cd $item
     echo "Building $item..."
-    # build go $item
     go build -v -o bin/$item
     echo "Done."
     echo ""
