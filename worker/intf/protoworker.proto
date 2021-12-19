@@ -23,18 +23,3 @@ message ReduceInput {
 message MapReduceOutput {
     map<string,uint32> res = 1;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
