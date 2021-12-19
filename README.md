@@ -9,10 +9,10 @@ Realize a distributed `grep` using the ***MapReduce*** paradigm: DistGrep return
 The program consists of three entities: **client**, **server**, **worker**.
 Workers can play the role of mappers and reducers.
 - A **client** entity sends a `distgrep(file, substr)` request to a **server** entity, with a source `file` and a `substr` to search within it
-- The **server** splits the `file` in `n` blocks, and assigns it to n **worker**s with a `map(block, substr)` request
+- The **server** splits the `file` in `n` blocks, and assigns it to `n` **worker**s with a `map(block, substr)` request
 - **(Map)** The **worker** entities execute the ***Map*** function, and emit a sequence of key-value pairs `(k,v)` where the key `k` is a single line of the received block matching the `substr`, and `v` is `"1"` *(actual implementation: the native `map` structure does not allow multiple values, so `v` is actually the number of occurrence of the line `k` into the block sent to the single worker)*
 - **(Shuffle and Sort)** The **server** receives the pairs from the **worker**s and re-arranges them in such a way as to obtain a new sequence of key-value pairs `(k,v')` where the key `k` is a single line of `file` matching the `substr`, and `v'` is a sequence of all the occurrences of `k` into all the blocks processed by the *mappers*.
-- **(Reduce)** The **server** splits again these pairs among the **worker**s, that now act as *reducers*, with a `reduce(pairs)` request. They will return a final sequenc eof key-value pairs `(k,v'')`, where `v''` is now the number of occurrences of `k` into the whole `file`.
+- **(Reduce)** The **server** splits again these pairs among the **worker**s, that now act as *reducers*, with a `reduce(pairs)` request. They will return a final sequence of key-value pairs `(k,v'')`, where `v''` is now the number of occurrences of `k` into the whole `file`.
 - The **server** returns back the pairs, re-arranged as a string, to the **client**, that will print it.
 
 #### Communication
