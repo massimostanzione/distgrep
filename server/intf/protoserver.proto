@@ -1,0 +1,17 @@
+// DistGrep Server interface
+syntax = "proto3";
+option go_package = "distgrep/intf";
+package intf;
+
+service DistGrep {
+    rpc executeDistGrep(DistGrepInput) returns (DistGrepOutput);
+}
+
+message DistGrepInput {
+    string file = 1;
+    string substr = 2;
+}
+
+message DistGrepOutput {
+    string res = 1;
+}

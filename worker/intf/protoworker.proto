@@ -1,0 +1,40 @@
+// DistGrep Worker interface
+syntax = "proto3";
+option go_package = "distgrep/intf";
+package intf; 
+
+service DistGrepWorker {
+    rpc map(MapInput) returns (MapReduceOutput);
+    rpc reduce(ReduceInput) returns (MapReduceOutput);
+}
+
+message MapInput {
+    repeated string file = 1;
+    string substr = 2;
+}
+
+message ReduceInput {
+    message OccurrenceList {
+        repeated uint32 occurrence = 1;
+        }
+    map<string, OccurrenceList> res = 1;
+    }
+
+message MapReduceOutput {
+    map<string,uint32> res = 1;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
