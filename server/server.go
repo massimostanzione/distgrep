@@ -96,7 +96,7 @@ func computeSlices(length int) []DistributedSliceIndexes {
 	log.Println("- Workload distribution:")
 	log.Println("  From\tTo\tAddress")
 	var rapp float64
-	slicesIndexes := make([]DistributedSliceIndexes, len(workersArray))
+	slicesIndexes := make([]DistributedSliceIndexes, 0)
 	rapp = float64(float64(length) / float64(len(workersArray)))
 	log.Println("  ----------------------------")
 	stop := false
@@ -118,16 +118,16 @@ func computeSlices(length int) []DistributedSliceIndexes {
 		slicesIndex.workerAddr = workersArray[i]
 		slicesIndex.from = from
 		slicesIndex.to = to
-		slicesIndexes[i] = slicesIndex
+		slicesIndexes = append(slicesIndexes, slicesIndex)
 	}
 	return slicesIndexes
 }
 
 // Synchronization point: here we read the output arriving from the workers, into the specified channel,
 // and we know that exactly len(workersArray) maps have to be received from them.
-func syncPointRead(channel chan map[string]uint32) []map[string]uint32 {
+func syncPointRead(channel chan map[string]uint32, effectiveWorkersNo int) []map[string]uint32 {
 	var ret = make([]map[string]uint32, len(workersArray))
-	for i := range workersArray {
+	for i := 0; i < effectiveWorkersNo; i++ {
 		resp := <-channel
 		ret[i] = resp
 	}
@@ -147,24 +147,30 @@ func (s *DGserver) ExecuteDistGrep(ctx context.Context, in *pb.DistGrepInput) (*
 	log.Printf("Map phase")
 	responses := make(chan map[string]uint32)
 	defer close(responses)
-	slicesIndexes := computeSlices(len(lines))
-	for i := range slicesIndexes {
-		from := slicesIndexes[i].from
-		to := slicesIndexes[i].to
-		go mapAssign(ctxw, workersArray[i], lines[from:to], in.Substr, responses)
-	}
-	// Read from mappers (synchronization point)
-	mapped := syncPointRead(responses)
-
-	// Just for printing and verifying
 	var val uint32
 	val = 0
-	for i := range mapped {
-		for _, v := range mapped[i] {
-			val += v
+	var mapped []map[string]uint32
+	var slicesIndexes []DistributedSliceIndexes
+	if len(lines) == 0 {
+		log.Printf("- Nothing to Map: input is empty")
+	} else {
+		slicesIndexes := computeSlices(len(lines))
+		for i := range slicesIndexes {
+			from := slicesIndexes[i].from
+			to := slicesIndexes[i].to
+			go mapAssign(ctxw, workersArray[i], lines[from:to], in.Substr, responses)
 		}
+		// Read from mappers (synchronization point)
+		mapped = syncPointRead(responses, len(slicesIndexes))
+
+		// Just for printing and verifying
+		for i := range mapped {
+			for _, v := range mapped[i] {
+				val += v
+			}
+		}
+		log.Printf("- %v line(s) matched the substr.", val)
 	}
-	log.Printf("- %v line(s) matched the substr.", val)
 	log.Printf("Map completed.")
 
 	// SHUFFLE & SORT
@@ -172,46 +178,53 @@ func (s *DGserver) ExecuteDistGrep(ctx context.Context, in *pb.DistGrepInput) (*
 	//         as value the sum of the occurrences of the key, instead of "1"
 	log.Printf("Shuffle & Sort phase")
 	sns := make(map[string][]uint32)
-	for i := range mapped {
-		for k, v := range mapped[i] {
-			sns[k] = append(sns[k], v)
+	if val == 0 {
+		log.Printf("- Nothing to shuffle&sort: none of the input strings matched with the substring")
+	} else {
+		for i := range mapped {
+			for k, v := range mapped[i] {
+				sns[k] = append(sns[k], v)
+			}
 		}
+		log.Printf("- %v unique line(s) matched the substr.", len(sns))
 	}
-	log.Printf("- %v unique line(s) matched the substr.", len(sns))
 	log.Printf("Shuffle & Sort completed.")
 
 	// REDUCE
 	log.Printf("Reduce phase")
-
-	// Since the "map" native structure is not sorted, and each iteration is done randomly, we need a
-	// temporary array to be iterated and sliced to be sent to the reducers
-	mapArray := make([]map[string]*pbw.ReduceInput_OccurrenceList, 0)
-	for k, v := range sns {
-		mapItem := make(map[string]*pbw.ReduceInput_OccurrenceList)
-		l := &pbw.ReduceInput_OccurrenceList{Occurrence: v}
-		mapItem[k] = l
-		mapArray = append(mapArray, mapItem)
-		mapItem = nil
-		l = nil
-	}
-	// Re-distributing the mapped workload among the same workers, that act now as reducers
-	slicesIndexes = nil
-	slicesIndexes = computeSlices(len(sns))
-	for i := range slicesIndexes {
-		from := slicesIndexes[i].from
-		to := slicesIndexes[i].to
-		go reduceAssign(ctxw, workersArray[i], mapArray[from:to], in.Substr, responses)
-	}
-
-	// Read from mappers (synchronization point)
-	mapped = syncPointRead(responses)
 	reduced := make(map[string]uint32)
-	for i := range mapped {
-		for k, v := range mapped[i] {
-			reduced[k] = v
+	if len(sns) == 0 {
+		log.Printf("- Nothing to reduce: none of the input strings matched with the substring")
+		reduced = nil
+	} else {
+		// Since the "map" native structure is not sorted, and each iteration is done randomly, we need a
+		// temporary array to be iterated and sliced to be sent to the reducers
+		mapArray := make([]map[string]*pbw.ReduceInput_OccurrenceList, 0)
+		for k, v := range sns {
+			mapItem := make(map[string]*pbw.ReduceInput_OccurrenceList)
+			l := &pbw.ReduceInput_OccurrenceList{Occurrence: v}
+			mapItem[k] = l
+			mapArray = append(mapArray, mapItem)
+			mapItem = nil
+			l = nil
+		}
+		// Re-distributing the mapped workload among the same workers, that act now as reducers
+		slicesIndexes = nil
+		slicesIndexes = computeSlices(len(sns))
+		for i := range slicesIndexes {
+			from := slicesIndexes[i].from
+			to := slicesIndexes[i].to
+			go reduceAssign(ctxw, workersArray[i], mapArray[from:to], in.Substr, responses)
+		}
+
+		// Read from mappers (synchronization point)
+		mapped = syncPointRead(responses, len(slicesIndexes))
+		for i := range mapped {
+			for k, v := range mapped[i] {
+				reduced[k] = v
+			}
 		}
 	}
-
 	// Preparing output
 	ress := ""
 	for k, v := range reduced {
@@ -243,7 +256,7 @@ func main() {
 		fmt.Printf("Workers to be bound with must be between %v and %v\n", MIN_WORKERSNO, MAX_WORKERSNO)
 		os.Exit(-1)
 	}
-	log.Println("Will bind to the following workers:")
+	log.Println("Will bind (on-demand) to the following workers:")
 	for i := range workersArray {
 		log.Printf("- %v", workersArray[i])
 	}
