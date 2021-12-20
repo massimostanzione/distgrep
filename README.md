@@ -1,7 +1,7 @@
 # distgrep
 *A distributed `grep`, implemented with the **MapReduce** model.*
 
-This repository consist of an exercise made in the context of the *Sistemi Distribuiti e Cloud Computing* (SDCC) course, taught at Faculty of Engineering, University of Rome Tor Vergata.
+This repository consists of an exercise made in the context of the *Sistemi Distribuiti e Cloud Computing* (SDCC) course, taught at Faculty of Engineering, University of Rome Tor Vergata.
 #### The assignment
 Realize a distributed `grep` using the ***MapReduce*** paradigm: DistGrep returns the lines of text of a large input file given in input that match a specific pattern (i.e.,regular expression) specified. Requirements: use Go and RPC (or gRPC)
 
@@ -16,13 +16,13 @@ Workers can play the role of mappers and reducers.
 - The **server** returns back the pairs, re-arranged as a string, to the **client**, that will print it.
 
 #### Communication
-Communication is implemented via gRPC, with the interfaces declared with Protocol Buffer as IDL.
+Communication is implemented via gRPC (on-demand, at each map/reduce request), with the interfaces declared with Protocol Buffer as IDL.
 
 #### How to run it
 1. Run `setup.sh` to create the gRPC stubs, arrange all the dependencies and generate executables.
 2. Then you can either run individually the single entities (the executables generated in the `/<entity>/bin` folder or `go run main.go <params>`) or execute a ready-to-use demonstration by running `demo.sh`.
 
-The input file provided, `ILIAD_1STBOOK_IT_ALTERED`, is the italian translation of the first book of the [Homer](http://https://en.wikipedia.org/wiki/Homer "Homer")'s [*Iliad*](https://en.wikipedia.org/wiki/Iliad/ "Iliad"), but altered in such a way that some lines are randomly repeated across the whole file.
+The input file provided, `ILIAD_1STBOOK_IT_ALTERED`, is the italian translation of the first book of the [Homer](https://en.wikipedia.org/wiki/Homer "Homer")'s [*Iliad*](https://en.wikipedia.org/wiki/Iliad "Iliad"), but altered in such a way that some lines are randomly repeated across the whole file.
 
 For each entity, please refer to the `-help` flag to see all the options available.
 
