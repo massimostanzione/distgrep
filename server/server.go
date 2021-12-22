@@ -126,10 +126,10 @@ func computeSlices(length int) []DistributedSliceIndexes {
 // Synchronization point: here we read the output arriving from the workers, into the specified channel,
 // and we know that exactly len(workersArray) maps have to be received from them.
 func syncPointRead(channel chan map[string]uint32, effectiveWorkersNo int) []map[string]uint32 {
-	var ret = make([]map[string]uint32, len(workersArray))
+	var ret = make([]map[string]uint32, 0)
 	for i := 0; i < effectiveWorkersNo; i++ {
 		resp := <-channel
-		ret[i] = resp
+		ret = append(ret, resp)
 	}
 	return ret
 }
