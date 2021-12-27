@@ -1,3 +1,4 @@
+#!/bin/bash
 # generate server, client and worker code using the protocol buffer compiler
 modules=( client server worker )
 for item in "${modules[@]}"

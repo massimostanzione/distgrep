@@ -1,3 +1,4 @@
+#!/bin/bash
 # a quick, ready-to-use demo
 echo "*** Distgrep demo ***"
 echo -E "" 
